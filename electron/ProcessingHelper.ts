@@ -101,6 +101,14 @@ export class ProcessingHelper {
         const openAIService = this.deps.getOpenAIService()
         if (openAIService) {
           openAIService.updateApiKey()
+          
+          // Check if we have a valid API key
+          if (!openAIService.hasKey()) {
+            // Show API Key Missing warning
+            mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.API_KEY_MISSING)
+            console.error("No valid OpenAI API key found - aborting processing")
+            return
+          }
         }
 
         const screenshots = await Promise.all(

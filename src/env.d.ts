@@ -44,6 +44,7 @@ interface ElectronAPI {
   onUnauthorized: (callback: () => void) => () => void
   onDebugError: (callback: (error: string) => void) => () => void
   onApiKeyUpdated: (callback: () => void) => () => void
+  onApiKeyMissing: (callback: () => void) => () => void
   openExternal: (url: string) => void
   toggleMainWindow: () => Promise<{ success: boolean; error?: string }>
   triggerScreenshot: () => Promise<{ success: boolean; error?: string }>

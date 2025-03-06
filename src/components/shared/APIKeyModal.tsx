@@ -66,9 +66,16 @@ const APIKeyModal: React.FC<APIKeyModalProps> = ({ trigger }) => {
       <DialogContent className="bg-black/80 backdrop-blur-md border border-white/10 text-white/90 rounded-lg shadow-xl p-6 max-w-md">
         <DialogTitle className="text-white text-xl font-semibold mb-2">OpenAI API Key</DialogTitle>
         <DialogDescription className="text-white/70 mb-4">
-          Enter your OpenAI API key to use your own account. Your key is stored locally and encrypted.
-          <br /><br />
-          Leave empty to use the default key.
+          <p className="mb-2">Enter your OpenAI API key to use your own account. The key is stored locally and encrypted on your device.</p>
+          
+          <div className="bg-blue-500/20 border border-blue-500/30 p-3 rounded-md mb-3">
+            <p className="font-medium text-blue-300">Security Note:</p>
+            <p className="text-sm text-white/80">
+              The application won't function without an API key. Your key is only stored on your device and used for API requests.
+            </p>
+          </div>
+          
+          <p className="text-sm">Leave empty to remove any stored key.</p>
         </DialogDescription>
         
         <div className="space-y-4">
@@ -84,6 +91,9 @@ const APIKeyModal: React.FC<APIKeyModalProps> = ({ trigger }) => {
               type="password"
               className="bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-md"
             />
+            <p className="text-xs text-white/60 mt-1">
+              Format: sk-xxxxxxxxxxxx
+            </p>
           </div>
           
           <div className="flex justify-end gap-3 mt-6">

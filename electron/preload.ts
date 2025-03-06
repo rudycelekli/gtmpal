@@ -50,6 +50,7 @@ interface ElectronAPI {
   getPlatform: () => string
   getOpenAIApiKey: () => Promise<{ success: boolean; apiKey: string; error?: string }>
   setOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
+  onApiKeyMissing: (callback: () => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -59,6 +60,7 @@ export const PROCESSING_EVENTS = {
   OUT_OF_CREDITS: "out-of-credits",
   API_KEY_INVALID: "processing-api-key-invalid",
   API_KEY_UPDATED: "api-key-updated",
+  API_KEY_MISSING: "api-key-missing",
 
   //states for generating the initial solution
   INITIAL_START: "initial-start",
@@ -234,7 +236,14 @@ const electronAPI = {
   },
   getPlatform: () => process.platform,
   getOpenAIApiKey: () => ipcRenderer.invoke("get-openai-api-key"),
-  setOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey)
+  setOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey),
+  onApiKeyMissing: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on(PROCESSING_EVENTS.API_KEY_MISSING, subscription)
+    return () => {
+      ipcRenderer.removeListener(PROCESSING_EVENTS.API_KEY_MISSING, subscription)
+    }
+  }
 } as ElectronAPI
 
 // Before exposing the API

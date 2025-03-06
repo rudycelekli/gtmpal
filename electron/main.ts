@@ -42,6 +42,8 @@ const state = {
     NO_SCREENSHOTS: "processing-no-screenshots",
     OUT_OF_CREDITS: "out-of-credits",
     API_KEY_INVALID: "processing-api-key-invalid",
+    API_KEY_MISSING: "api-key-missing",
+    API_KEY_UPDATED: "api-key-updated",
     INITIAL_START: "initial-start",
     PROBLEM_EXTRACTED: "problem-extracted",
     SOLUTION_SUCCESS: "solution-success",

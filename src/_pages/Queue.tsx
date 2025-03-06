@@ -120,6 +120,13 @@ const Queue: React.FC<QueueProps> = ({
           "You are out of credits. Please refill at https://www.interviewcoder.co/settings.",
           "error"
         )
+      }),
+      window.electronAPI.onApiKeyMissing(() => {
+        showToast(
+          "API Key Missing",
+          "No OpenAI API key found. Please add your API key in Settings to continue.",
+          "error"
+        )
       })
     ]
 
