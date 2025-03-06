@@ -30,10 +30,11 @@ interface ElectronAPI {
   onSolutionSuccess: (callback: (data: any) => void) => () => void
   onUnauthorized: (callback: () => void) => () => void
   onDebugError: (callback: (error: string) => void) => () => void
+  onApiKeyUpdated: (callback: () => void) => () => void
   openExternal: (url: string) => void
   toggleMainWindow: () => Promise<{ success: boolean; error?: string }>
   triggerScreenshot: () => Promise<{ success: boolean; error?: string }>
-  triggerProcessScreenshots: () => Promise<{ success: boolean; error?: string }>
+  triggerProcessScreenshots: (options?: { model?: string }) => Promise<{ success: boolean; error?: string }>
   triggerReset: () => Promise<{ success: boolean; error?: string }>
   triggerMoveLeft: () => Promise<{ success: boolean; error?: string }>
   triggerMoveRight: () => Promise<{ success: boolean; error?: string }>
@@ -47,6 +48,8 @@ interface ElectronAPI {
   onCreditsUpdated: (callback: (credits: number) => void) => () => void
   onOutOfCredits: (callback: () => void) => () => void
   getPlatform: () => string
+  getOpenAIApiKey: () => Promise<{ success: boolean; apiKey: string; error?: string }>
+  setOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
 }
 
 export const PROCESSING_EVENTS = {
@@ -54,6 +57,8 @@ export const PROCESSING_EVENTS = {
   UNAUTHORIZED: "procesing-unauthorized",
   NO_SCREENSHOTS: "processing-no-screenshots",
   OUT_OF_CREDITS: "out-of-credits",
+  API_KEY_INVALID: "processing-api-key-invalid",
+  API_KEY_UPDATED: "api-key-updated",
 
   //states for generating the initial solution
   INITIAL_START: "initial-start",
@@ -187,10 +192,17 @@ const electronAPI = {
       ipcRenderer.removeListener(PROCESSING_EVENTS.UNAUTHORIZED, subscription)
     }
   },
+  onApiKeyUpdated: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("api-key-updated", subscription)
+    return () => {
+      ipcRenderer.removeListener("api-key-updated", subscription)
+    }
+  },
   openExternal: (url: string) => shell.openExternal(url),
   triggerScreenshot: () => ipcRenderer.invoke("trigger-screenshot"),
-  triggerProcessScreenshots: () =>
-    ipcRenderer.invoke("trigger-process-screenshots"),
+  triggerProcessScreenshots: (options?: { model?: string }) =>
+    ipcRenderer.invoke("trigger-process-screenshots", options),
   triggerReset: () => ipcRenderer.invoke("trigger-reset"),
   triggerMoveLeft: () => ipcRenderer.invoke("trigger-move-left"),
   triggerMoveRight: () => ipcRenderer.invoke("trigger-move-right"),
@@ -220,7 +232,9 @@ const electronAPI = {
       ipcRenderer.removeListener("credits-updated", subscription)
     }
   },
-  getPlatform: () => process.platform
+  getPlatform: () => process.platform,
+  getOpenAIApiKey: () => ipcRenderer.invoke("get-openai-api-key"),
+  setOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey)
 } as ElectronAPI
 
 // Before exposing the API

@@ -125,12 +125,16 @@ export interface SolutionsProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
+  currentModel: string
+  setModel: (model: string) => void
 }
 const Solutions: React.FC<SolutionsProps> = ({
   setView,
   credits,
   currentLanguage,
-  setLanguage
+  setLanguage,
+  currentModel,
+  setModel
 }) => {
   const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
@@ -458,6 +462,8 @@ const Solutions: React.FC<SolutionsProps> = ({
             credits={credits}
             currentLanguage={currentLanguage}
             setLanguage={setLanguage}
+            currentModel={currentModel}
+            setModel={setModel}
           />
 
           {/* Main Content - Modified width constraints */}

@@ -5,6 +5,8 @@ import { IProcessingHelperDeps } from "./main"
 import axios from "axios"
 import { app } from "electron"
 import { BrowserWindow } from "electron"
+import process from "process"
+import OpenAI from "openai"
 
 const isDev = !app.isPackaged
 const API_BASE_URL = isDev
@@ -72,7 +74,7 @@ export class ProcessingHelper {
     }
   }
 
-  public async processScreenshots(): Promise<void> {
+  public async processScreenshots(model?: string): Promise<void> {
     const mainWindow = this.deps.getMainWindow()
     if (!mainWindow) return
 
@@ -95,68 +97,47 @@ export class ProcessingHelper {
         this.currentProcessingAbortController = new AbortController()
         const { signal } = this.currentProcessingAbortController
 
-        const screenshots = await Promise.all(
-          screenshotQueue.map(async (path) => ({
-            path,
-            preview: await this.screenshotHelper.getImagePreview(path),
-            data: fs.readFileSync(path).toString("base64")
-          }))
-        )
-
-        const result = await this.processScreenshotsHelper(screenshots, signal)
-
-        if (!result.success) {
-          console.log("Processing failed:", result.error)
-          if (result.error?.includes("API Key out of credits")) {
-            mainWindow.webContents.send(
-              this.deps.PROCESSING_EVENTS.OUT_OF_CREDITS
-            )
-          } else if (result.error?.includes("OpenAI API key not found")) {
-            mainWindow.webContents.send(
-              this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-              "OpenAI API key not found in environment variables. Please set the OPEN_AI_API_KEY environment variable."
-            )
-          } else {
-            mainWindow.webContents.send(
-              this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-              result.error
-            )
-          }
-          // Reset view back to queue on error
-          console.log("Resetting view to queue due to error")
-          this.deps.setView("queue")
-          return
+        // Fetch the OpenAI service and update it with the latest API key
+        const openAIService = this.deps.getOpenAIService()
+        if (openAIService) {
+          openAIService.updateApiKey()
         }
 
-        // Only set view to solutions if processing succeeded
-        console.log("Setting view to solutions after successful processing")
-        mainWindow.webContents.send(
-          this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS,
-          result.data
+        const screenshots = await Promise.all(
+          screenshotQueue.map(async (path) => {
+            try {
+              const data = await fs.promises.readFile(path, {
+                encoding: "base64"
+              })
+              return { path, data }
+            } catch (error) {
+              console.error(`Error reading file ${path}:`, error)
+              throw error
+            }
+          })
         )
-        this.deps.setView("solutions")
-      } catch (error: any) {
-        mainWindow.webContents.send(
-          this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-          error
-        )
-        console.error("Processing error:", error)
-        if (axios.isCancel(error)) {
+
+        // Process screenshots
+        await this.processScreenshotsHelper(screenshots, signal, model)
+        await this.generateSolutionsHelper(signal, model)
+
+        // Success event
+        mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS, 
+          this.deps.getProblemInfo())
+      } catch (error) {
+        console.error("Error processing screenshots:", error)
+        // Error event
+        if (error instanceof Error) {
           mainWindow.webContents.send(
             this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-            "Processing was canceled by the user."
+            error.message
           )
         } else {
           mainWindow.webContents.send(
             this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-            error.message || "Server error. Please try again."
+            "Unknown error occurred"
           )
         }
-        // Reset view back to queue on error
-        console.log("Resetting view to queue due to error")
-        this.deps.setView("queue")
-      } finally {
-        this.currentProcessingAbortController = null
       }
     } else {
       // view == 'solutions'
@@ -226,7 +207,8 @@ export class ProcessingHelper {
 
   private async processScreenshotsHelper(
     screenshots: Array<{ path: string; data: string }>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    model?: string
   ) {
     const MAX_RETRIES = 0
     let retryCount = 0
@@ -238,86 +220,75 @@ export class ProcessingHelper {
         const language = await this.getLanguage()
         let problemInfo
 
-        // First API call - extract problem info
-        try {
-          const extractResponse = await axios.post(
-            `${API_BASE_URL}/api/extract`,
-            { imageDataList, language },
+        // First API call - extract problem info using OpenAI Vision model
+        const openAiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPEN_AI_API_KEY
+        if (!openAiKey) {
+          throw new Error("OpenAI API key not found in environment variables")
+        }
+
+        // Initialize OpenAI client directly
+        const openai = new OpenAI({
+          apiKey: openAiKey,
+          timeout: 300000,
+          maxRetries: 3
+        })
+
+        // First API call - extract problem info using OpenAI Vision model
+        const base64Images = imageDataList.map(data => 
+          `data:image/png;base64,${data}`
+        )
+        
+        // Direct call to OpenAI API
+        const extractResponse = await openai.chat.completions.create({
+          model: model || "gpt-4o",
+          messages: [
             {
-              signal,
-              timeout: 300000,
-              validateStatus: function (status) {
-                return status < 500
-              },
-              maxRedirects: 5,
-              headers: {
-                "Content-Type": "application/json"
-              }
+              role: "system",
+              content: "You are an expert programming assistant that extracts problem information from screenshots."
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Extract the programming problem description from these screenshots:" },
+                ...base64Images.map(url => ({
+                  type: "image_url" as const,
+                  image_url: { url }
+                }))
+              ]
             }
+          ],
+          max_tokens: 4000
+        }, {
+          signal
+        })
+
+        problemInfo = extractResponse.choices[0].message.content
+        
+        // Store problem info in AppState
+        this.deps.setProblemInfo(problemInfo)
+
+        // Send first success event
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            this.deps.PROCESSING_EVENTS.PROBLEM_EXTRACTED,
+            problemInfo
           )
 
-          problemInfo = extractResponse.data
-
-          // Store problem info in AppState
-          this.deps.setProblemInfo(problemInfo)
-
-          // Send first success event
-          if (mainWindow) {
+          // Generate solutions after successful extraction
+          const solutionsResult = await this.generateSolutionsHelper(signal, model)
+          if (solutionsResult.success) {
+            // Clear any existing extra screenshots before transitioning to solutions view
+            this.screenshotHelper.clearExtraScreenshotQueue()
             mainWindow.webContents.send(
-              this.deps.PROCESSING_EVENTS.PROBLEM_EXTRACTED,
-              problemInfo
+              this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS,
+              solutionsResult.data
             )
-
-            // Generate solutions after successful extraction
-            const solutionsResult = await this.generateSolutionsHelper(signal)
-            if (solutionsResult.success) {
-              // Clear any existing extra screenshots before transitioning to solutions view
-              this.screenshotHelper.clearExtraScreenshotQueue()
-              mainWindow.webContents.send(
-                this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS,
-                solutionsResult.data
-              )
-              return { success: true, data: solutionsResult.data }
-            } else {
-              throw new Error(
-                solutionsResult.error || "Failed to generate solutions"
-              )
-            }
+            return { success: true, data: solutionsResult.data }
+          } else {
+            throw new Error(
+              solutionsResult.error || "Failed to generate solutions"
+            )
           }
-        } catch (error: any) {
-          // If the request was cancelled, don't retry
-          if (axios.isCancel(error)) {
-            return {
-              success: false,
-              error: "Processing was canceled by the user."
-            }
-          }
-
-          console.error("API Error Details:", {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message,
-            code: error.code
-          })
-
-          // Handle API-specific errors
-          if (
-            error.response?.data?.error &&
-            typeof error.response.data.error === "string"
-          ) {
-            if (error.response.data.error.includes("Operation timed out")) {
-              throw new Error(
-                "Operation timed out after 1 minute. Please try again."
-              )
-            }
-            if (error.response.data.error.includes("API Key out of credits")) {
-              throw new Error(error.response.data.error)
-            }
-            throw new Error(error.response.data.error)
-          }
-
-          // If we get here, it's an unknown error
-          throw new Error(error.message || "Server error. Please try again.")
         }
       } catch (error: any) {
         // Log the full error for debugging
@@ -345,36 +316,74 @@ export class ProcessingHelper {
     }
   }
 
-  private async generateSolutionsHelper(signal: AbortSignal) {
+  private async generateSolutionsHelper(signal: AbortSignal, model?: string) {
     try {
       const problemInfo = this.deps.getProblemInfo()
       const language = await this.getLanguage()
+      const openAiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPEN_AI_API_KEY
+
+      if (!openAiKey) {
+        throw new Error("OpenAI API key not found in environment variables")
+      }
 
       if (!problemInfo) {
         throw new Error("No problem info available")
       }
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/generate`,
-        { ...problemInfo, language },
-        {
-          signal,
+      console.log("Generating solutions with problem info:", problemInfo)
+      console.log("Using language:", language)
+      
+      // Instead of making a server call, let's use OpenAI directly like we did for problem extraction
+      try {
+        // Initialize OpenAI client
+        const openai = new OpenAI({
+          apiKey: openAiKey,
           timeout: 300000,
-          validateStatus: function (status) {
-            return status < 500
-          },
-          maxRedirects: 5,
-          headers: {
-            "Content-Type": "application/json"
-          }
-        }
-      )
-
-      return { success: true, data: response.data }
+          maxRetries: 3
+        })
+        
+        console.log("Making direct OpenAI API call for solution generation...")
+        
+        const response = await openai.chat.completions.create({
+          model: model || "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert programmer. Generate a solution in ${language}.`
+            },
+            {
+              role: "user",
+              content: `Solve this programming problem and explain your approach. Include time and space complexity analysis.\n\n${problemInfo}`
+            }
+          ],
+          max_tokens: 4000
+        }, {
+          signal
+        })
+        
+        console.log("OpenAI API response received for solution generation")
+        
+        const solutionText = response.choices[0].message.content || ""
+        
+        // Parse the solution text into the expected format
+        const solution = this.parseSolution(solutionText)
+        
+        console.log("Solution parsed successfully")
+        
+        return { success: true, data: solution }
+      } catch (error) {
+        console.error("Direct OpenAI API call error:", error)
+        throw error
+      }
     } catch (error: any) {
       const mainWindow = this.deps.getMainWindow()
+      console.error("Solution generation error:", {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data
+      })
 
-      // Handle timeout errors (both 504 and axios timeout)
+      // Handle specific error cases (left as they were)
       if (error.code === "ECONNABORTED" || error.response?.status === 504) {
         // Cancel ongoing API requests
         this.cancelOngoingRequests()
@@ -418,7 +427,28 @@ export class ProcessingHelper {
         return { success: false, error: error.response.data.error }
       }
 
-      return { success: false, error: error.message }
+      return { success: false, error: error.message || "Unknown error in solution generation" }
+    }
+  }
+
+  // Add helper method to parse solution text
+  private parseSolution(solutionText: string) {
+    // Extract code blocks
+    const codeRegex = /```(?:.*?)\n([\s\S]*?)```/g
+    const codeMatches = [...solutionText.matchAll(codeRegex)]
+    
+    // Extract time and space complexity
+    const extractComplexity = (text: string, type: "time" | "space") => {
+      const regex = new RegExp(`${type}\\s*complexity.*?[OΘΩ]\\([^)]+\\)`, "i")
+      const match = text.match(regex)
+      return match ? match[0] : `${type.charAt(0).toUpperCase() + type.slice(1)} complexity not specified`
+    }
+    
+    return {
+      code: codeMatches.length > 0 ? codeMatches[0][1] : solutionText,
+      thoughts: ["Solution analysis:\n" + solutionText.split("```")[0]],
+      time_complexity: extractComplexity(solutionText, "time"),
+      space_complexity: extractComplexity(solutionText, "space")
     }
   }
 

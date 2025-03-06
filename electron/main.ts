@@ -6,6 +6,8 @@ import { ScreenshotHelper } from "./ScreenshotHelper"
 import { ShortcutsHelper } from "./shortcuts"
 import { initAutoUpdater } from "./autoUpdater"
 import * as dotenv from "dotenv"
+import { OpenAIService } from "./OpenAIService"
+import { initStore } from "./store"
 
 // Constants
 const isDev = process.env.NODE_ENV === "development" || !app.isPackaged
@@ -27,6 +29,7 @@ const state = {
   screenshotHelper: null as ScreenshotHelper | null,
   shortcutsHelper: null as ShortcutsHelper | null,
   processingHelper: null as ProcessingHelper | null,
+  openAIService: null as OpenAIService | null,
 
   // View and state management
   view: "queue" as "queue" | "solutions" | "debug",
@@ -43,6 +46,7 @@ const state = {
     PROBLEM_EXTRACTED: "problem-extracted",
     SOLUTION_SUCCESS: "solution-success",
     INITIAL_SOLUTION_ERROR: "solution-error",
+    RESET: "reset",
     DEBUG_START: "debug-start",
     DEBUG_SUCCESS: "debug-success",
     DEBUG_ERROR: "debug-error"
@@ -67,6 +71,7 @@ export interface IProcessingHelperDeps {
   ) => Promise<{ success: boolean; error?: string }>
   setHasDebugged: (hasDebugged: boolean) => void
   getHasDebugged: () => boolean
+  getOpenAIService: () => OpenAIService | null
   PROCESSING_EVENTS: typeof state.PROCESSING_EVENTS
 }
 
@@ -106,11 +111,22 @@ export interface IIpcHandlerDeps {
   moveWindowRight: () => void
   moveWindowUp: () => void
   moveWindowDown: () => void
+  getOpenAIService: () => OpenAIService | null
 }
 
 // Initialize helpers
 function initializeHelpers() {
   state.screenshotHelper = new ScreenshotHelper(state.view)
+  
+  // Initialize OpenAIService
+  try {
+    state.openAIService = new OpenAIService()
+  } catch (error) {
+    console.error("Error initializing OpenAIService:", error)
+    // We'll continue without the service, and the app will use env variables
+    state.openAIService = null
+  }
+  
   state.processingHelper = new ProcessingHelper({
     getScreenshotHelper,
     getMainWindow,
@@ -126,6 +142,7 @@ function initializeHelpers() {
     deleteScreenshot,
     setHasDebugged,
     getHasDebugged,
+    getOpenAIService,
     PROCESSING_EVENTS: state.PROCESSING_EVENTS
   } as IProcessingHelperDeps)
   state.shortcutsHelper = new ShortcutsHelper({
@@ -397,10 +414,18 @@ function setWindowDimensions(width: number, height: number): void {
 function loadEnvVariables() {
   try {
     dotenv.config()
+    const openAiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPEN_AI_API_KEY
+    if (!openAiKey) {
+      console.error('OpenAI API key not found in environment variables')
+    } else {
+      console.log("OpenAI API key found")
+      // Make the API key available to both format variables
+      process.env.OPENAI_API_KEY = openAiKey
+      process.env.VITE_OPEN_AI_API_KEY = openAiKey
+    }
     console.log("Environment variables loaded:", {
       NODE_ENV: process.env.NODE_ENV,
-      // Remove Supabase references
-      OPEN_AI_API_KEY: process.env.OPEN_AI_API_KEY ? "exists" : "missing"
+      OPEN_AI_API_KEY: openAiKey ? "exists" : "missing"
     })
   } catch (error) {
     console.error("Error loading environment variables:", error)
@@ -411,6 +436,10 @@ function loadEnvVariables() {
 async function initializeApp() {
   try {
     loadEnvVariables()
+    
+    // Initialize store first
+    await initStore()
+    
     initializeHelpers()
     initializeIpcHandlers({
       getMainWindow,
@@ -439,7 +468,8 @@ async function initializeApp() {
           )
         ),
       moveWindowUp: () => moveWindowVertical((y) => y - state.step),
-      moveWindowDown: () => moveWindowVertical((y) => y + state.step)
+      moveWindowDown: () => moveWindowVertical((y) => y + state.step),
+      getOpenAIService: () => state.openAIService
     })
     await createWindow()
     state.shortcutsHelper?.registerGlobalShortcuts()
@@ -530,6 +560,10 @@ function getHasDebugged(): boolean {
   return state.hasDebugged
 }
 
+function getOpenAIService(): OpenAIService | null {
+  return state.openAIService
+}
+
 // Export state and functions for other modules
 export {
   state,
@@ -553,7 +587,8 @@ export {
   getImagePreview,
   deleteScreenshot,
   setHasDebugged,
-  getHasDebugged
+  getHasDebugged,
+  getOpenAIService
 }
 
 app.whenReady().then(initializeApp)

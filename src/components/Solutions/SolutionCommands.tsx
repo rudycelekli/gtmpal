@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react"
 import { useToast } from "../../contexts/toast"
 import { Screenshot } from "../../types/screenshots"
 import { LanguageSelector } from "../shared/LanguageSelector"
+import { ModelSelector } from "../shared/ModelSelector"
+import APIKeyModal from "../shared/APIKeyModal"
 import { COMMAND_KEY } from "../../utils/platform"
 
 export interface SolutionCommandsProps {
@@ -12,6 +14,8 @@ export interface SolutionCommandsProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
+  currentModel: string
+  setModel: (model: string) => void
 }
 
 const SolutionCommands: React.FC<SolutionCommandsProps> = ({
@@ -20,7 +24,9 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   extraScreenshots = [],
   credits,
   currentLanguage,
-  setLanguage
+  setLanguage,
+  currentModel,
+  setModel
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -45,7 +51,18 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
   return (
     <div>
       <div className="pt-2 w-fit">
-        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
+        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4">
+          <LanguageSelector
+            currentLanguage={currentLanguage}
+            setLanguage={setLanguage}
+          />
+          <ModelSelector
+            currentModel={currentModel}
+            setModel={setModel}
+          />
+        </div>
+        
+        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4 mt-2">
           {/* Show/Hide - Always visible */}
           <div
             className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
@@ -112,25 +129,19 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                   onClick={async () => {
                     try {
                       const result =
-                        await window.electronAPI.triggerProcessScreenshots()
+                        await window.electronAPI.triggerProcessScreenshots({
+                          model: currentModel
+                        })
                       if (!result.success) {
                         console.error(
                           "Failed to process screenshots:",
                           result.error
                         )
-                        showToast(
-                          "Error",
-                          "Failed to process screenshots",
-                          "error"
-                        )
+                        showToast("Error", "Failed to process screenshots", "error")
                       }
                     } catch (error) {
                       console.error("Error processing screenshots:", error)
-                      showToast(
-                        "Error",
-                        "Failed to process screenshots",
-                        "error"
-                      )
+                      showToast("Error", "Failed to process screenshots", "error")
                     }
                   }}
                 >
@@ -313,7 +324,9 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
                               onClick={async () => {
                                 try {
                                   const result =
-                                    await window.electronAPI.triggerProcessScreenshots()
+                                    await window.electronAPI.triggerProcessScreenshots({
+                                      model: currentModel
+                                    })
                                   if (!result.success) {
                                     console.error(
                                       "Failed to process screenshots:",
@@ -394,10 +407,34 @@ const SolutionCommands: React.FC<SolutionCommandsProps> = ({
 
                     {/* Language Selector only */}
                     <div className="pt-3 mt-3 border-t border-white/10">
+                      <h3 className="font-medium truncate mb-3">Settings</h3>
                       <LanguageSelector
                         currentLanguage={currentLanguage}
                         setLanguage={setLanguage}
                       />
+                      <ModelSelector
+                        currentModel={currentModel}
+                        setModel={setModel}
+                      />
+                      <div className="mt-4">
+                        <APIKeyModal 
+                          trigger={
+                            <div className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <span className="truncate">OpenAI API Key</span>
+                                <div className="flex gap-1 flex-shrink-0">
+                                  <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                                    Edit
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-[10px] leading-relaxed text-white/70 truncate mt-1">
+                                Use your own OpenAI API key.
+                              </p>
+                            </div>
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

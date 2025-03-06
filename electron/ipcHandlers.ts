@@ -3,9 +3,59 @@
 import { ipcMain, shell } from "electron"
 import { randomBytes } from "crypto"
 import { IIpcHandlerDeps } from "./main"
+import { store } from "./store"
 
 export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   console.log("Initializing IPC handlers")
+
+  // API Key handlers
+  ipcMain.handle("get-openai-api-key", async () => {
+    try {
+      const apiKey = store.get("openaiApiKey");
+      
+      // If store.get returns undefined, return an empty string
+      return { 
+        success: true, 
+        apiKey: apiKey || "" 
+      }
+    } catch (error) {
+      console.error("Error getting OpenAI API key:", error)
+      return { success: false, error: "Failed to get API key" }
+    }
+  })
+
+  ipcMain.handle("set-openai-api-key", async (_event, apiKey: string) => {
+    try {
+      if (apiKey) {
+        store.set("openaiApiKey", apiKey);
+      } else {
+        // If apiKey is empty, we can consider it as removing the key
+        // This is safe even if store isn't fully initialized yet
+        try {
+          store.set("openaiApiKey", undefined);
+        } catch (error) {
+          console.warn("Failed to clear API key, but continuing:", error);
+        }
+      }
+      
+      // If we have an OpenAI service instance, update it with the new API key
+      const openAIService = deps.getOpenAIService()
+      if (openAIService) {
+        openAIService.updateApiKey(apiKey)
+      }
+      
+      // Notify that the API key has been updated
+      const mainWindow = deps.getMainWindow()
+      if (mainWindow) {
+        mainWindow.webContents.send("api-key-updated")
+      }
+      
+      return { success: true }
+    } catch (error) {
+      console.error("Error setting OpenAI API key:", error)
+      return { success: false, error: "Failed to save API key" }
+    }
+  })
 
   // Credits handlers
   ipcMain.handle("set-initial-credits", async (_event, credits: number) => {
@@ -168,9 +218,9 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   })
 
   // Process screenshot handlers
-  ipcMain.handle("trigger-process-screenshots", async () => {
+  ipcMain.handle("trigger-process-screenshots", async (_, options?: { model?: string }) => {
     try {
-      await deps.processingHelper?.processScreenshots()
+      await deps.processingHelper?.processScreenshots(options?.model)
       return { success: true }
     } catch (error) {
       console.error("Error processing screenshots:", error)

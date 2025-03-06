@@ -39,6 +39,7 @@ function App() {
   })
   const [credits, setCredits] = useState<number>(999) // Set a high default value
   const [currentLanguage, setCurrentLanguage] = useState<string>("python")
+  const [currentModel, setCurrentModel] = useState<string>("gpt4o")
   const [isInitialized, setIsInitialized] = useState(false)
 
   // Helper function to safely update credits
@@ -51,6 +52,12 @@ function App() {
   const updateLanguage = useCallback((newLanguage: string) => {
     setCurrentLanguage(newLanguage)
     window.__LANGUAGE__ = newLanguage
+  }, [])
+
+  // Helper function to safely update model
+  const updateModel = useCallback((newModel: string) => {
+    setCurrentModel(newModel)
+    window.__MODEL__ = newModel
   }, [])
 
   // Helper function to mark initialization complete
@@ -81,8 +88,9 @@ function App() {
     // Set default values
     updateCredits(999) // High number of credits
     updateLanguage("python")
+    updateModel("gpt4o")
     markInitialized()
-  }, [updateCredits, updateLanguage, markInitialized])
+  }, [updateCredits, updateLanguage, updateModel, markInitialized])
 
   // Close toast after delay
   useEffect(() => {
@@ -104,6 +112,8 @@ function App() {
               credits={credits}
               currentLanguage={currentLanguage}
               setLanguage={updateLanguage}
+              currentModel={currentModel}
+              setModel={updateModel}
             />
             <Toast
               open={toastState.open}
