@@ -4,8 +4,6 @@
   "main": "dist-electron/main.js",
   "scripts": {
     "clean": "rimraf dist dist-electron",
-    "clean-env": "node scripts/clean-env.js",
-    "prebuild": "npm run clean-env",
     "dev": "cross-env NODE_ENV=production npm run clean && vite build && tsc -p tsconfig.electron.json && electron .",
     "dev:prod": "cross-env NODE_ENV=production npm run clean && vite build && tsc -p tsconfig.electron.json && electron .",
     "build": "cross-env NODE_ENV=production rimraf dist dist-electron && vite build && tsc -p tsconfig.electron.json && electron-builder"
@@ -23,15 +21,6 @@
       "output": "release",
       "buildResources": "assets"
     },
-    "extraFiles": [
-      ".env.example"
-    ],
-    "extraResources": [
-      {
-        "from": ".env.example",
-        "to": ".env.example"
-      }
-    ],
     "asar": true,
     "compression": "maximum",
     "generateUpdatesFilesForAllChannels": true,
@@ -103,6 +92,15 @@
         "releaseType": "release"
       }
     ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "extraMetadata": {
       "main": "dist-electron/main.js"
     }
@@ -134,10 +132,8 @@
     "react": "^18.2.0",
     "react-code-blocks": "^0.1.6",
     "react-dom": "^18.2.0",
-    "react-markdown": "^10.0.1",
     "react-router-dom": "^6.22.0",
     "react-syntax-highlighter": "^15.6.1",
-    "remark-gfm": "^4.0.1",
     "screenshot-desktop": "^1.15.0",
     "tailwind-merge": "^2.5.5",
     "uuid": "^11.0.3"

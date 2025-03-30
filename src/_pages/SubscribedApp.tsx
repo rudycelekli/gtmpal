@@ -9,16 +9,12 @@ interface SubscribedAppProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  setModel: (model: string) => void
 }
 
 const SubscribedApp: React.FC<SubscribedAppProps> = ({
   credits,
   currentLanguage,
-  setLanguage,
-  currentModel,
-  setModel
+  setLanguage
 }) => {
   const queryClient = useQueryClient()
   const [view, setView] = useState<"queue" | "solutions" | "debug">("queue")
@@ -136,8 +132,6 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
           credits={credits}
           currentLanguage={currentLanguage}
           setLanguage={setLanguage}
-          currentModel={currentModel}
-          setModel={setModel}
         />
       ) : view === "solutions" ? (
         <Solutions
@@ -145,8 +139,6 @@ const SubscribedApp: React.FC<SubscribedAppProps> = ({
           credits={credits}
           currentLanguage={currentLanguage}
           setLanguage={setLanguage}
-          currentModel={currentModel}
-          setModel={setModel}
         />
       ) : null}
     </div>

@@ -74,7 +74,7 @@ export class ProcessingHelper {
     }
   }
 
-  public async processScreenshots(model?: string): Promise<void> {
+  public async processScreenshots(): Promise<void> {
     const mainWindow = this.deps.getMainWindow()
     if (!mainWindow) return
 
@@ -97,55 +97,68 @@ export class ProcessingHelper {
         this.currentProcessingAbortController = new AbortController()
         const { signal } = this.currentProcessingAbortController
 
-        // Fetch the OpenAI service and update it with the latest API key
-        const openAIService = this.deps.getOpenAIService()
-        if (openAIService) {
-          openAIService.updateApiKey()
-          
-          // Check if we have a valid API key
-          if (!openAIService.hasKey()) {
-            // Show API Key Missing warning
-            mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.API_KEY_MISSING)
-            console.error("No valid OpenAI API key found - aborting processing")
-            return
-          }
-        }
-
         const screenshots = await Promise.all(
-          screenshotQueue.map(async (path) => {
-            try {
-              const data = await fs.promises.readFile(path, {
-                encoding: "base64"
-              })
-              return { path, data }
-            } catch (error) {
-              console.error(`Error reading file ${path}:`, error)
-              throw error
-            }
-          })
+          screenshotQueue.map(async (path) => ({
+            path,
+            preview: await this.screenshotHelper.getImagePreview(path),
+            data: fs.readFileSync(path).toString("base64")
+          }))
         )
 
-        // Process screenshots
-        await this.processScreenshotsHelper(screenshots, signal, model)
-        await this.generateSolutionsHelper(signal, model)
+        const result = await this.processScreenshotsHelper(screenshots, signal)
 
-        // Success event
-        mainWindow.webContents.send(this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS, 
-          this.deps.getProblemInfo())
-      } catch (error) {
-        console.error("Error processing screenshots:", error)
-        // Error event
-        if (error instanceof Error) {
+        if (!result.success) {
+          console.log("Processing failed:", result.error)
+          if (result.error?.includes("API Key out of credits")) {
+            mainWindow.webContents.send(
+              this.deps.PROCESSING_EVENTS.OUT_OF_CREDITS
+            )
+          } else if (result.error?.includes("OpenAI API key not found")) {
+            mainWindow.webContents.send(
+              this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
+              "OpenAI API key not found in environment variables. Please set the OPEN_AI_API_KEY environment variable."
+            )
+          } else {
+            mainWindow.webContents.send(
+              this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
+              result.error
+            )
+          }
+          // Reset view back to queue on error
+          console.log("Resetting view to queue due to error")
+          this.deps.setView("queue")
+          return
+        }
+
+        // Only set view to solutions if processing succeeded
+        console.log("Setting view to solutions after successful processing")
+        mainWindow.webContents.send(
+          this.deps.PROCESSING_EVENTS.SOLUTION_SUCCESS,
+          result.data
+        )
+        this.deps.setView("solutions")
+      } catch (error: any) {
+        mainWindow.webContents.send(
+          this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
+          error
+        )
+        console.error("Processing error:", error)
+        if (axios.isCancel(error)) {
           mainWindow.webContents.send(
             this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-            error.message
+            "Processing was canceled by the user."
           )
         } else {
           mainWindow.webContents.send(
             this.deps.PROCESSING_EVENTS.INITIAL_SOLUTION_ERROR,
-            "Unknown error occurred"
+            error.message || "Server error. Please try again."
           )
         }
+        // Reset view back to queue on error
+        console.log("Resetting view to queue due to error")
+        this.deps.setView("queue")
+      } finally {
+        this.currentProcessingAbortController = null
       }
     } else {
       // view == 'solutions'
@@ -215,8 +228,7 @@ export class ProcessingHelper {
 
   private async processScreenshotsHelper(
     screenshots: Array<{ path: string; data: string }>,
-    signal: AbortSignal,
-    model?: string
+    signal: AbortSignal
   ) {
     const MAX_RETRIES = 0
     let retryCount = 0
@@ -248,7 +260,7 @@ export class ProcessingHelper {
         
         // Direct call to OpenAI API
         const extractResponse = await openai.chat.completions.create({
-          model: model || "gpt-4o",
+          model: "gpt-4o",
           messages: [
             {
               role: "system",
@@ -283,7 +295,7 @@ export class ProcessingHelper {
           )
 
           // Generate solutions after successful extraction
-          const solutionsResult = await this.generateSolutionsHelper(signal, model)
+          const solutionsResult = await this.generateSolutionsHelper(signal)
           if (solutionsResult.success) {
             // Clear any existing extra screenshots before transitioning to solutions view
             this.screenshotHelper.clearExtraScreenshotQueue()
@@ -324,7 +336,7 @@ export class ProcessingHelper {
     }
   }
 
-  private async generateSolutionsHelper(signal: AbortSignal, model?: string) {
+  private async generateSolutionsHelper(signal: AbortSignal) {
     try {
       const problemInfo = this.deps.getProblemInfo()
       const language = await this.getLanguage()
@@ -353,7 +365,7 @@ export class ProcessingHelper {
         console.log("Making direct OpenAI API call for solution generation...")
         
         const response = await openai.chat.completions.create({
-          model: model || "gpt-4o",
+          model: "gpt-4o",
           messages: [
             {
               role: "system",

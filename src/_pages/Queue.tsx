@@ -21,17 +21,13 @@ interface QueueProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  setModel: (model: string) => void
 }
 
 const Queue: React.FC<QueueProps> = ({
   setView,
   credits,
   currentLanguage,
-  setLanguage,
-  currentModel,
-  setModel
+  setLanguage
 }) => {
   const { showToast } = useToast()
 
@@ -120,13 +116,6 @@ const Queue: React.FC<QueueProps> = ({
           "You are out of credits. Please refill at https://www.interviewcoder.co/settings.",
           "error"
         )
-      }),
-      window.electronAPI.onApiKeyMissing(() => {
-        showToast(
-          "API Key Missing",
-          "No OpenAI API key found. Please add your API key in Settings to continue.",
-          "error"
-        )
       })
     ]
 
@@ -157,8 +146,6 @@ const Queue: React.FC<QueueProps> = ({
             credits={credits}
             currentLanguage={currentLanguage}
             setLanguage={setLanguage}
-            currentModel={currentModel}
-            setModel={setModel}
           />
         </div>
       </div>

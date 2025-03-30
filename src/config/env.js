@@ -15,14 +15,12 @@ if (!fs.existsSync(envPath)) {
 dotenv.config({ path: envPath });
 
 // Validate required environment variables
-if (!process.env.OPENAI_API_KEY) {
-  console.error('OPENAI_API_KEY is not defined in .env file');
-  process.exit(1);
-}
+// No longer enforcing API key from .env file
+// Instead we will prompt the user for their own key
 
 export default {
   openai: {
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY || '', // Provide empty default
     timeout: parseInt(process.env.API_TIMEOUT || '30000', 10),
     maxRetries: parseInt(process.env.API_MAX_RETRIES || '3', 10),
   }

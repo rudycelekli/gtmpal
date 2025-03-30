@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from "react"
 
 import { useToast } from "../../contexts/toast"
 import { LanguageSelector } from "../shared/LanguageSelector"
-import { ModelSelector } from "../shared/ModelSelector"
-import APIKeyModal from "../shared/APIKeyModal"
 import { COMMAND_KEY } from "../../utils/platform"
 
 interface QueueCommandsProps {
@@ -12,8 +10,6 @@ interface QueueCommandsProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  setModel: (model: string) => void
 }
 
 const QueueCommands: React.FC<QueueCommandsProps> = ({
@@ -21,9 +17,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   screenshotCount = 0,
   credits,
   currentLanguage,
-  setLanguage,
-  currentModel,
-  setModel
+  setLanguage
 }) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false)
   const tooltipRef = useRef<HTMLDivElement>(null)
@@ -48,18 +42,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
   return (
     <div>
       <div className="pt-2 w-fit">
-        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4">
-          <LanguageSelector
-            currentLanguage={currentLanguage}
-            setLanguage={setLanguage}
-          />
-          <ModelSelector
-            currentModel={currentModel}
-            setModel={setModel}
-          />
-        </div>
-        
-        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4 mt-2">
+        <div className="text-xs text-white/90 backdrop-blur-md bg-black/60 rounded-lg py-2 px-4 flex items-center justify-center gap-4">
           {/* Screenshot */}
           <div
             className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
@@ -111,9 +94,7 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
 
                 try {
                   const result =
-                    await window.electronAPI.triggerProcessScreenshots({
-                      model: currentModel
-                    })
+                    await window.electronAPI.triggerProcessScreenshots()
                   if (!result.success) {
                     console.error(
                       "Failed to process screenshots:",
@@ -267,27 +248,68 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                           Take a screenshot of the problem description.
                         </p>
                       </div>
-                    </div>
-                    
-                    {/* API Key Settings */}
-                    <div className="pt-3 mt-3 border-t border-white/10">
-                      <h3 className="font-medium truncate mb-3">API Settings</h3>
-                      <APIKeyModal 
-                        trigger={
-                          <div className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <span className="truncate">OpenAI API Key</span>
-                              <div className="flex gap-1 flex-shrink-0">
-                                <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
-                                  Edit
-                                </span>
-                              </div>
-                            </div>
-                            <p className="text-[10px] leading-relaxed text-white/70 truncate mt-1">
-                              Use your own OpenAI API key.
-                            </p>
+
+                      {/* Solve Command */}
+                      <div
+                        className={`cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors ${
+                          screenshotCount > 0
+                            ? ""
+                            : "opacity-50 cursor-not-allowed"
+                        }`}
+                        onClick={async () => {
+                          if (screenshotCount === 0) return
+
+                          try {
+                            const result =
+                              await window.electronAPI.triggerProcessScreenshots()
+                            if (!result.success) {
+                              console.error(
+                                "Failed to process screenshots:",
+                                result.error
+                              )
+                              showToast(
+                                "Error",
+                                "Failed to process screenshots",
+                                "error"
+                              )
+                            }
+                          } catch (error) {
+                            console.error(
+                              "Error processing screenshots:",
+                              error
+                            )
+                            showToast(
+                              "Error",
+                              "Failed to process screenshots",
+                              "error"
+                            )
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">Solve</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                              {COMMAND_KEY}
+                            </span>
+                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                              ↵
+                            </span>
                           </div>
-                        }
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-white/70 truncate mt-1">
+                          {screenshotCount > 0
+                            ? "Generate a solution based on the current problem."
+                            : "Take a screenshot first to generate a solution."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Language Selector only */}
+                    <div className="pt-3 mt-3 border-t border-white/10">
+                      <LanguageSelector
+                        currentLanguage={currentLanguage}
+                        setLanguage={setLanguage}
                       />
                     </div>
                   </div>

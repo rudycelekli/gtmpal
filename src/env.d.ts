@@ -43,12 +43,10 @@ interface ElectronAPI {
   onSolutionSuccess: (callback: (data: any) => void) => () => void
   onUnauthorized: (callback: () => void) => () => void
   onDebugError: (callback: (error: string) => void) => () => void
-  onApiKeyUpdated: (callback: () => void) => () => void
-  onApiKeyMissing: (callback: () => void) => () => void
   openExternal: (url: string) => void
   toggleMainWindow: () => Promise<{ success: boolean; error?: string }>
   triggerScreenshot: () => Promise<{ success: boolean; error?: string }>
-  triggerProcessScreenshots: (options?: { model?: string }) => Promise<{ success: boolean; error?: string }>
+  triggerProcessScreenshots: () => Promise<{ success: boolean; error?: string }>
   triggerReset: () => Promise<{ success: boolean; error?: string }>
   triggerMoveLeft: () => Promise<{ success: boolean; error?: string }>
   triggerMoveRight: () => Promise<{ success: boolean; error?: string }>
@@ -61,12 +59,6 @@ interface ElectronAPI {
   installUpdate: () => void
   onUpdateAvailable: (callback: (info: any) => void) => () => void
   onUpdateDownloaded: (callback: (info: any) => void) => () => void
-  onOutOfCredits: (callback: () => void) => () => void
-  decrementCredits: () => Promise<void>
-  onCreditsUpdated: (callback: (credits: number) => void) => () => void
-  getPlatform: () => string
-  getOpenAIApiKey: () => Promise<{ success: boolean; apiKey: string; error?: string }>
-  setOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
 }
 
 interface Window {
@@ -79,6 +71,5 @@ interface Window {
   }
   __CREDITS__: number
   __LANGUAGE__: string
-  __MODEL__: string
   __IS_INITIALIZED__: boolean
 }

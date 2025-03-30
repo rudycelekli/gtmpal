@@ -3,8 +3,6 @@ import React, { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 
@@ -35,220 +33,11 @@ export const ContentSection = ({
       </div>
     ) : (
       <div className="text-[13px] leading-[1.4] text-gray-100 max-w-[600px]">
-        {typeof content === 'string' ? (
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              // Style paragraphs
-              p: ({node, ...props}) => <p className="text-[13px] leading-[1.6] text-gray-100 my-2" {...props} />,
-              
-              // Style lists
-              ul: ({node, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
-              li: ({node, ...props}) => <li className="text-[13px] text-gray-100" {...props} />,
-              
-              // Style code blocks and inline code
-              code: ({node, inline, className, children, ...props}) => {
-                const match = /language-(\w+)/.exec(className || '')
-                
-                return !inline && match ? (
-                  <SyntaxHighlighter
-                    style={dracula}
-                    language={match[1]}
-                    customStyle={{
-                      margin: '0.5rem 0',
-                      padding: '0.75rem',
-                      borderRadius: '0.25rem',
-                      backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    }}
-                    PreTag="div"
-                    {...props}
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code
-                    className="bg-black/30 px-1 py-0.5 rounded text-[12px] font-mono text-white"
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                )
-              },
-              
-              // Style blockquotes
-              blockquote: ({node, ...props}) => (
-                <blockquote 
-                  className="border-l-2 border-white/20 pl-3 italic text-white/70 my-2"
-                  {...props} 
-                />
-              ),
-              
-              // Style tables
-              table: ({node, ...props}) => (
-                <div className="overflow-x-auto my-3">
-                  <table className="min-w-full border-collapse text-[12px]" {...props} />
-                </div>
-              ),
-              thead: ({node, ...props}) => <thead className="bg-white/10" {...props} />,
-              tbody: ({node, ...props}) => <tbody className="divide-y divide-white/10" {...props} />,
-              tr: ({node, ...props}) => <tr className="divide-x divide-white/10" {...props} />,
-              th: ({node, ...props}) => (
-                <th 
-                  className="px-3 py-2 text-left font-medium text-white/90" 
-                  {...props} 
-                />
-              ),
-              td: ({node, ...props}) => (
-                <td 
-                  className="px-3 py-2 text-left text-white/80" 
-                  {...props} 
-                />
-              ),
-            }}
-          >
-            {content}
-          </ReactMarkdown>
-        ) : (
-          content
-        )}
+        {content}
       </div>
     )}
   </div>
 )
-
-// Enhanced render function for solution thoughts with proper markdown support
-const renderThoughtContent = (thought: string) => {
-  // Special case for complexity analysis lines to highlight them
-  if (thought.match(/^(Time|Space) Complexity:/i)) {
-    return (
-      <div className="flex gap-2 items-start my-2">
-        <div className="text-indigo-400 font-medium">{thought.split(':')[0]}:</div>
-        <div className="text-white/80">{thought.split(':').slice(1).join(':')}</div>
-      </div>
-    );
-  }
-  
-  // For empty lines, add some spacing
-  if (thought.trim() === '') {
-    return <div className="h-2"></div>;
-  }
-  
-  // Main heading styles
-  if (thought.startsWith('# ') || thought.match(/^[A-Z][A-Z\s]+:$/)) {
-    return (
-      <h3 className="text-[14px] font-semibold text-white/90 mt-4 mb-2 pb-1 border-b border-white/10">
-        {thought.replace(/^#\s*/, '')}
-      </h3>
-    );
-  }
-  
-  // Render markdown content with custom components for better styling
-  return (
-    <div className="interview-solution-markdown my-2 text-[13px]">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          // Style headings
-          h1: ({node, ...props}) => <h1 className="text-[16px] font-semibold text-white/90 mt-4 mb-2 pb-1 border-b border-white/10" {...props} />,
-          h2: ({node, ...props}) => <h2 className="text-[15px] font-semibold text-white/90 mt-4 mb-2" {...props} />,
-          h3: ({node, ...props}) => <h3 className="text-[14px] font-semibold text-white/90 mt-3 mb-2" {...props} />,
-          h4: ({node, ...props}) => <h4 className="text-[13px] font-medium text-white/80 mt-2 mb-1" {...props} />,
-          h5: ({node, ...props}) => <h5 className="text-[12px] font-medium text-white/80 mt-2 mb-1" {...props} />,
-          
-          // Style paragraphs
-          p: ({node, ...props}) => <p className="text-[13px] leading-[1.6] text-gray-100 my-2" {...props} />,
-          
-          // Style lists
-          ul: ({node, ...props}) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
-          ol: ({node, ...props}) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
-          li: ({node, ...props}) => <li className="text-[13px] text-gray-100" {...props} />,
-          
-          // Style code blocks and inline code
-          code: ({node, inline, className, children, ...props}) => {
-            const match = /language-(\w+)/.exec(className || '')
-            
-            return !inline && match ? (
-              <SyntaxHighlighter
-                style={dracula}
-                language={match[1]}
-                customStyle={{
-                  margin: '0.5rem 0',
-                  padding: '0.75rem',
-                  borderRadius: '0.25rem',
-                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                }}
-                PreTag="div"
-                {...props}
-              >
-                {String(children).replace(/\n$/, '')}
-              </SyntaxHighlighter>
-            ) : (
-              <code
-                className="bg-black/30 px-1 py-0.5 rounded text-[12px] font-mono text-white"
-                {...props}
-              >
-                {children}
-              </code>
-            )
-          },
-          
-          // Style blockquotes
-          blockquote: ({node, ...props}) => (
-            <blockquote 
-              className="border-l-2 border-white/20 pl-3 italic text-white/70 my-2"
-              {...props} 
-            />
-          ),
-          
-          // Style tables
-          table: ({node, ...props}) => (
-            <div className="overflow-x-auto my-3">
-              <table className="min-w-full border-collapse text-[12px]" {...props} />
-            </div>
-          ),
-          thead: ({node, ...props}) => <thead className="bg-white/10" {...props} />,
-          tbody: ({node, ...props}) => <tbody className="divide-y divide-white/10" {...props} />,
-          tr: ({node, ...props}) => <tr className="divide-x divide-white/10" {...props} />,
-          th: ({node, ...props}) => (
-            <th 
-              className="px-3 py-2 text-left font-medium text-white/90" 
-              {...props} 
-            />
-          ),
-          td: ({node, ...props}) => (
-            <td 
-              className="px-3 py-2 text-left text-white/80" 
-              {...props} 
-            />
-          ),
-          
-          // Style thematic breaks
-          hr: ({node, ...props}) => (
-            <hr className="border-white/20 my-4" {...props} />
-          ),
-          
-          // Style emphasis
-          em: ({node, ...props}) => <em className="italic" {...props} />,
-          strong: ({node, ...props}) => <strong className="font-semibold text-white/90" {...props} />,
-          
-          // Style links
-          a: ({node, ...props}) => (
-            <a 
-              className="text-blue-400 hover:text-blue-300 hover:underline" 
-              target="_blank"
-              rel="noopener noreferrer"
-              {...props} 
-            />
-          ),
-        }}
-      >
-        {thought}
-      </ReactMarkdown>
-    </div>
-  );
-};
-
 const SolutionSection = ({
   title,
   content,
@@ -261,11 +50,8 @@ const SolutionSection = ({
   currentLanguage: string
 }) => (
   <div className="space-y-2">
-    <h2 className="text-[13px] font-medium text-white tracking-wide flex justify-between items-center">
-      <span>{title}</span>
-      <span className="text-[11px] text-white/60 font-normal px-2 py-1 rounded bg-white/10">
-        {currentLanguage}
-      </span>
+    <h2 className="text-[13px] font-medium text-white tracking-wide">
+      {title}
     </h2>
     {isLoading ? (
       <div className="space-y-1.5">
@@ -276,36 +62,23 @@ const SolutionSection = ({
         </div>
       </div>
     ) : (
-      <div className="text-[13px] leading-[1.4] text-gray-100 overflow-x-auto">
+      <div className="w-full">
         <SyntaxHighlighter
           showLineNumbers
-          language={currentLanguage === "golang" ? "go" : currentLanguage}
+          language={currentLanguage == "golang" ? "go" : currentLanguage}
           style={dracula}
           customStyle={{
             maxWidth: "100%",
             margin: 0,
             padding: "1rem",
             whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            backgroundColor: "rgba(22, 27, 34, 0.5)",
-            borderRadius: "0.25rem",
-            boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
+            wordBreak: "break-all",
+            backgroundColor: "rgba(22, 27, 34, 0.5)"
           }}
           wrapLongLines={true}
-          lineProps={(lineNumber) => ({
-            style: { 
-              display: 'block', 
-              width: '100%',
-              paddingRight: '1em',
-              paddingLeft: '0.5em'
-            }
-          })}
         >
           {content as string}
         </SyntaxHighlighter>
-        <div className="mt-2 text-xs text-white/60 italic">
-          Pro tip: You can <span className="font-medium text-white/80">copy, edit and run</span> this code directly.
-        </div>
       </div>
     )}
   </div>
@@ -352,16 +125,12 @@ export interface SolutionsProps {
   credits: number
   currentLanguage: string
   setLanguage: (language: string) => void
-  currentModel: string
-  setModel: (model: string) => void
 }
 const Solutions: React.FC<SolutionsProps> = ({
   setView,
   credits,
   currentLanguage,
-  setLanguage,
-  currentModel,
-  setModel
+  setLanguage
 }) => {
   const queryClient = useQueryClient()
   const contentRef = useRef<HTMLDivElement>(null)
@@ -582,13 +351,6 @@ const Solutions: React.FC<SolutionsProps> = ({
           "You are out of credits. Please refill at https://www.interviewcoder.co/settings.",
           "error"
         )
-      }),
-      window.electronAPI.onApiKeyMissing(() => {
-        showToast(
-          "API Key Missing",
-          "No OpenAI API key found. Please add your API key in Settings to continue.",
-          "error"
-        )
       })
     ]
 
@@ -696,8 +458,6 @@ const Solutions: React.FC<SolutionsProps> = ({
             credits={credits}
             currentLanguage={currentLanguage}
             setLanguage={setLanguage}
-            currentModel={currentModel}
-            setModel={setModel}
           />
 
           {/* Main Content - Modified width constraints */}
@@ -724,17 +484,23 @@ const Solutions: React.FC<SolutionsProps> = ({
                 {solutionData && (
                   <>
                     <ContentSection
-                      title="Solution Approach"
+                      title={`My Thoughts (${COMMAND_KEY} + Arrow keys to scroll)`}
                       content={
-                        <div className="interview-solution">
-                          {thoughtsData && (
-                            thoughtsData.map((thought, index) => (
-                              <React.Fragment key={index}>
-                                {renderThoughtContent(thought)}
-                              </React.Fragment>
-                            ))
-                          )}
-                        </div>
+                        thoughtsData && (
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              {thoughtsData.map((thought, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-start gap-2"
+                                >
+                                  <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
+                                  <div>{thought}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
                       }
                       isLoading={!thoughtsData}
                     />
