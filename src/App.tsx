@@ -13,6 +13,7 @@ import {
   ToastViewport
 } from "./components/ui/toast"
 import { ToastContext } from "./contexts/toast"
+import APIKeyPromptOnStartup from "./components/shared/APIKeyPromptOnStartup"
 
 // Create a React Query client
 const queryClient = new QueryClient({
@@ -100,6 +101,9 @@ function App() {
       <ToastContext.Provider value={{ showToast }}>
         <ToastProvider>
           <div className="min-h-screen bg-transparent">
+            {/* Add API Key Prompt */}
+            <APIKeyPromptOnStartup />
+            
             <SubscribedApp
               credits={credits}
               currentLanguage={currentLanguage}

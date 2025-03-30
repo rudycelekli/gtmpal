@@ -47,6 +47,10 @@ interface ElectronAPI {
   onCreditsUpdated: (callback: (credits: number) => void) => () => void
   onOutOfCredits: (callback: () => void) => () => void
   getPlatform: () => string
+  getOpenAIApiKey: () => Promise<{ success: boolean; apiKey?: string; error?: string }>
+  setOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
+  onApiKeyUpdated: (callback: () => void) => () => void
+  onApiKeyMissing: (callback: () => void) => () => void
 }
 
 export const PROCESSING_EVENTS = {
@@ -220,7 +224,23 @@ const electronAPI = {
       ipcRenderer.removeListener("credits-updated", subscription)
     }
   },
-  getPlatform: () => process.platform
+  getPlatform: () => process.platform,
+  getOpenAIApiKey: () => ipcRenderer.invoke("get-openai-api-key"),
+  setOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey),
+  onApiKeyUpdated: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("api-key-updated", subscription)
+    return () => {
+      ipcRenderer.removeListener("api-key-updated", subscription)
+    }
+  },
+  onApiKeyMissing: (callback: () => void) => {
+    const subscription = () => callback()
+    ipcRenderer.on("api-key-missing", subscription)
+    return () => {
+      ipcRenderer.removeListener("api-key-missing", subscription)
+    }
+  }
 } as ElectronAPI
 
 // Before exposing the API

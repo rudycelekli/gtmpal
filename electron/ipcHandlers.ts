@@ -3,9 +3,142 @@
 import { ipcMain, shell } from "electron"
 import { randomBytes } from "crypto"
 import { IIpcHandlerDeps } from "./main"
+import path from "path"
+
+// Initialize store with async function
+let store: any = null;
+
+// Initialize store function - using a different pattern to load ESM modules in CommonJS
+async function initializeStore() {
+  try {
+    // Use a simpler approach - store the API key in a JSON file
+    const fs = await import('fs/promises');
+    const userDataPath = process.env.APPDATA || 
+      (process.platform === 'darwin' ? 
+        path.join(process.env.HOME || '', 'Library', 'Application Support') : 
+        path.join(process.env.HOME || '', '.config'));
+    
+    const configPath = path.join(userDataPath, 'interview-coder-v1', 'config.json');
+    
+    // Create a simple wrapper for our store
+    store = {
+      get: async (key: string) => {
+        try {
+          // Check if config file exists
+          try {
+            await fs.access(configPath);
+          } catch (error) {
+            // Make sure directory exists
+            await fs.mkdir(path.dirname(configPath), { recursive: true });
+            // Create empty config
+            await fs.writeFile(configPath, JSON.stringify({}), 'utf8');
+            return undefined;
+          }
+          
+          // Read the file
+          const data = await fs.readFile(configPath, 'utf8');
+          const config = JSON.parse(data || '{}');
+          return config[key];
+        } catch (error) {
+          console.error(`Error getting ${key} from config:`, error);
+          return undefined;
+        }
+      },
+      set: async (key: string, value: any) => {
+        try {
+          // Make sure directory exists
+          await fs.mkdir(path.dirname(configPath), { recursive: true });
+          
+          // Read current config
+          let config = {};
+          try {
+            const data = await fs.readFile(configPath, 'utf8');
+            config = JSON.parse(data || '{}');
+          } catch (error) {
+            // Ignore if file doesn't exist yet
+          }
+          
+          // Update the value
+          config = { ...config, [key]: value };
+          
+          // Save back to file
+          await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8');
+          return true;
+        } catch (error) {
+          console.error(`Error setting ${key} in config:`, error);
+          return false;
+        }
+      }
+    };
+    
+    return true;
+  } catch (error) {
+    console.error("Error initializing config store:", error);
+    return false;
+  }
+}
 
 export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
   console.log("Initializing IPC handlers")
+  
+  // Initialize store
+  initializeStore().catch(err => console.error("Failed to initialize store:", err));
+
+  // API Key handlers
+  ipcMain.handle("get-openai-api-key", async () => {
+    try {
+      if (!store) {
+        await initializeStore();
+        if (!store) {
+          return { success: false, error: "Store not initialized" };
+        }
+      }
+      
+      const apiKey = await store.get('openai-api-key');
+      
+      if (!apiKey) {
+        return { success: false, error: "API key not found" };
+      }
+      
+      return { success: true, apiKey };
+    } catch (error) {
+      console.error("Error getting API key:", error);
+      return { success: false, error: "Failed to retrieve API key" };
+    }
+  });
+
+  ipcMain.handle("set-openai-api-key", async (_event, apiKey: string) => {
+    try {
+      if (!store) {
+        await initializeStore();
+        if (!store) {
+          return { success: false, error: "Store not initialized" };
+        }
+      }
+      
+      if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+        return { success: false, error: "Invalid API key" };
+      }
+      
+      // Store the API key
+      await store.set('openai-api-key', apiKey.trim());
+      
+      // Set it in environment for current session
+      process.env.OPENAI_API_KEY = apiKey.trim();
+      process.env.VITE_OPEN_AI_API_KEY = apiKey.trim();
+      
+      // Notify that the API key has been updated
+      const mainWindow = deps.getMainWindow();
+      if (mainWindow) {
+        mainWindow.webContents.send("api-key-updated");
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error setting API key:", error);
+      return { success: false, error: "Failed to save API key" };
+    }
+  });
 
   // Credits handlers
   ipcMain.handle("set-initial-credits", async (_event, credits: number) => {

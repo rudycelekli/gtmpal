@@ -394,31 +394,69 @@ function setWindowDimensions(width: number, height: number): void {
 }
 
 // Environment setup
-function loadEnvVariables() {
+async function loadEnvVariables() {
   try {
-    dotenv.config()
-    const openAiKey = process.env.OPENAI_API_KEY || process.env.VITE_OPEN_AI_API_KEY
-    if (!openAiKey) {
-      console.error('OpenAI API key not found in environment variables')
-    } else {
-      console.log("OpenAI API key found")
-      // Make the API key available to both format variables
-      process.env.OPENAI_API_KEY = openAiKey
-      process.env.VITE_OPEN_AI_API_KEY = openAiKey
+    // No longer using dotenv for API key
+    // Instead, check if we have a stored API key in our config file
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    
+    const userDataPath = process.env.APPDATA || 
+      (process.platform === 'darwin' ? 
+        path.join(process.env.HOME || '', 'Library', 'Application Support') : 
+        path.join(process.env.HOME || '', '.config'));
+    
+    const configPath = path.join(userDataPath, 'interview-coder-v1', 'config.json');
+    
+    let storedApiKey: string | undefined;
+    
+    try {
+      // Check if config file exists
+      await fs.access(configPath);
+      
+      // Read the file
+      const data = await fs.readFile(configPath, 'utf8');
+      const config = JSON.parse(data || '{}');
+      storedApiKey = config['openai-api-key'];
+    } catch (error) {
+      // Config doesn't exist or can't be read
+      storedApiKey = undefined;
     }
-    console.log("Environment variables loaded:", {
+    
+    if (storedApiKey) {
+      // Make the API key available to both format variables
+      process.env.OPENAI_API_KEY = storedApiKey;
+      process.env.VITE_OPEN_AI_API_KEY = storedApiKey;
+      console.log("OpenAI API key loaded from user preferences");
+    } else {
+      console.log("No OpenAI API key found in user preferences. User will be prompted to enter one.");
+      
+      // Since we're going to prompt the user for the API key, we can set up a one-time
+      // check to notify the renderer that the API key is missing
+      const checkForApiKey = () => {
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send("api-key-missing");
+        }
+      };
+      
+      // Check after a short delay to ensure the window is ready
+      setTimeout(checkForApiKey, 1000);
+    }
+    
+    console.log("Environment setup complete:", {
       NODE_ENV: process.env.NODE_ENV,
-      OPEN_AI_API_KEY: openAiKey ? "exists" : "missing"
-    })
+      OPEN_AI_API_KEY: storedApiKey ? "exists" : "missing"
+    });
   } catch (error) {
-    console.error("Error loading environment variables:", error)
+    console.error("Error loading environment variables:", error);
   }
 }
 
 // Initialize application
 async function initializeApp() {
   try {
-    loadEnvVariables()
+    await loadEnvVariables()
     initializeHelpers()
     initializeIpcHandlers({
       getMainWindow,
