@@ -95,12 +95,13 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
       }
       
       const apiKey = await store.get('openai-api-key');
+      const model = await store.get('openai-model') || 'gpt-4o'; // Default to gpt-4o
       
       if (!apiKey) {
         return { success: false, error: "API key not found" };
       }
       
-      return { success: true, apiKey };
+      return { success: true, apiKey, model };
     } catch (error) {
       console.error("Error getting API key:", error);
       return { success: false, error: "Failed to retrieve API key" };
@@ -137,6 +138,50 @@ export function initializeIpcHandlers(deps: IIpcHandlerDeps): void {
     } catch (error) {
       console.error("Error setting API key:", error);
       return { success: false, error: "Failed to save API key" };
+    }
+  });
+
+  // New handler for model configuration
+  ipcMain.handle("set-model-config", async (_event, config: { apiKey: string; model: string }) => {
+    try {
+      if (!store) {
+        await initializeStore();
+        if (!store) {
+          return { success: false, error: "Store not initialized" };
+        }
+      }
+      
+      const { apiKey, model } = config;
+      
+      if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
+        return { success: false, error: "Invalid API key" };
+      }
+      
+      if (!model || typeof model !== 'string') {
+        return { success: false, error: "Invalid model selection" };
+      }
+      
+      // Store the configuration
+      await store.set('openai-api-key', apiKey.trim());
+      await store.set('openai-model', model);
+      
+      // Set them in environment for current session
+      process.env.OPENAI_API_KEY = apiKey.trim();
+      process.env.VITE_OPEN_AI_API_KEY = apiKey.trim();
+      process.env.OPENAI_MODEL = model;
+      
+      console.log(`Configured with model: ${model}`);
+      
+      // Notify that the config has been updated
+      const mainWindow = deps.getMainWindow();
+      if (mainWindow) {
+        mainWindow.webContents.send("api-key-updated");
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error("Error setting model configuration:", error);
+      return { success: false, error: "Failed to save configuration" };
     }
   });
 

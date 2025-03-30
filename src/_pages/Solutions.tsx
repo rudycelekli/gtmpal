@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
 import { dracula } from "react-syntax-highlighter/dist/esm/styles/prism"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import ScreenshotQueue from "../components/Queue/ScreenshotQueue"
 
@@ -38,6 +40,58 @@ export const ContentSection = ({
     )}
   </div>
 )
+
+// Component to render markdown content
+const MarkdownRenderer = ({ content }: { content: string }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    className="markdown-content"
+    components={{
+      code({ node, inline, className, children, ...props }) {
+        const match = /language-(\w+)/.exec(className || '')
+        return !inline && match ? (
+          <SyntaxHighlighter
+            style={dracula}
+            language={match[1]}
+            PreTag="div"
+            customStyle={{
+              margin: '1em 0',
+              borderRadius: '4px',
+              backgroundColor: 'rgba(22, 27, 34, 0.5)'
+            }}
+            {...props}
+          >
+            {String(children).replace(/\n$/, '')}
+          </SyntaxHighlighter>
+        ) : (
+          <code className={className} {...props}>
+            {children}
+          </code>
+        )
+      },
+      h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2">{children}</h1>,
+      h2: ({ children }) => <h2 className="text-md font-bold mt-3 mb-2">{children}</h2>,
+      h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1">{children}</h3>,
+      p: ({ children }) => <p className="mb-2">{children}</p>,
+      ul: ({ children }) => <ul className="list-disc ml-4 mb-2">{children}</ul>,
+      ol: ({ children }) => <ol className="list-decimal ml-4 mb-2">{children}</ol>,
+      li: ({ children }) => <li className="mb-1">{children}</li>,
+      table: ({ children }) => (
+        <div className="overflow-x-auto my-2">
+          <table className="min-w-full border border-gray-700">{children}</table>
+        </div>
+      ),
+      thead: ({ children }) => <thead className="bg-gray-800">{children}</thead>,
+      tbody: ({ children }) => <tbody>{children}</tbody>,
+      tr: ({ children }) => <tr className="border-b border-gray-700">{children}</tr>,
+      th: ({ children }) => <th className="px-4 py-2 text-left text-white">{children}</th>,
+      td: ({ children }) => <td className="px-4 py-2 border-r border-gray-700 last:border-r-0">{children}</td>,
+    }}
+  >
+    {content}
+  </ReactMarkdown>
+)
+
 const SolutionSection = ({
   title,
   content,
@@ -468,7 +522,11 @@ const Solutions: React.FC<SolutionsProps> = ({
                   <>
                     <ContentSection
                       title="Problem Statement"
-                      content={problemStatementData?.problem_statement}
+                      content={
+                        problemStatementData?.problem_statement ? (
+                          <MarkdownRenderer content={problemStatementData.problem_statement} />
+                        ) : null
+                      }
                       isLoading={!problemStatementData}
                     />
                     {problemStatementData && (
@@ -488,17 +546,14 @@ const Solutions: React.FC<SolutionsProps> = ({
                       content={
                         thoughtsData && (
                           <div className="space-y-3">
-                            <div className="space-y-1">
-                              {thoughtsData.map((thought, index) => (
-                                <div
-                                  key={index}
-                                  className="flex items-start gap-2"
-                                >
-                                  <div className="w-1 h-1 rounded-full bg-blue-400/80 mt-2 shrink-0" />
-                                  <div>{thought}</div>
-                                </div>
-                              ))}
-                            </div>
+                            {thoughtsData.map((thought, index) => (
+                              <div
+                                key={index}
+                                className="rounded bg-black/30 p-3"
+                              >
+                                <MarkdownRenderer content={thought} />
+                              </div>
+                            ))}
                           </div>
                         )
                       }

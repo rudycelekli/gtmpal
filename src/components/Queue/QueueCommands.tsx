@@ -303,14 +303,88 @@ const QueueCommands: React.FC<QueueCommandsProps> = ({
                             : "Take a screenshot first to generate a solution."}
                         </p>
                       </div>
-                    </div>
 
-                    {/* Language Selector only */}
-                    <div className="pt-3 mt-3 border-t border-white/10">
-                      <LanguageSelector
-                        currentLanguage={currentLanguage}
-                        setLanguage={setLanguage}
-                      />
+                      {/* Reset Command */}
+                      <div
+                        className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
+                        onClick={async () => {
+                          try {
+                            const result = await window.electronAPI.triggerReset()
+                            if (!result.success) {
+                              console.error("Failed to reset:", result.error)
+                              showToast("Error", "Failed to reset", "error")
+                            }
+                          } catch (error) {
+                            console.error("Error resetting:", error)
+                            showToast("Error", "Failed to reset", "error")
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">Reset</span>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                              {COMMAND_KEY}
+                            </span>
+                            <span className="bg-white/20 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                              R
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-[10px] leading-relaxed text-white/70 truncate mt-1">
+                          Reset all screenshots and start over.
+                        </p>
+                      </div>
+                      
+                      {/* API Configuration - NEW SECTION */}
+                      <div className="border-t border-white/10 pt-3 mt-3">
+                        <h3 className="font-medium truncate px-2 mb-2">API Configuration</h3>
+                        <div 
+                          className="cursor-pointer rounded px-2 py-1.5 hover:bg-white/10 transition-colors"
+                          onClick={() => {
+                            // Use a custom event to trigger the API key modal to show
+                            const event = new CustomEvent('open-api-settings');
+                            document.dispatchEvent(event);
+                            setIsTooltipVisible(false);
+                          }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <svg className="w-4 h-4 mr-2 text-blue-400" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                              <span className="truncate">OpenAI Models</span>
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <span className="bg-blue-500/30 text-blue-300 px-1.5 py-0.5 rounded text-[10px] leading-none">
+                                O1
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] leading-relaxed text-white/70 truncate mt-1 pl-6">
+                            Configure API key and select from GPT-4, O1, and other models.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Language Selector */}
+                      <div className="border-t border-white/10 pt-3 mt-3">
+                        <h3 className="font-medium truncate px-2 mb-2">Programming Language</h3>
+                        <LanguageSelector
+                          currentLanguage={currentLanguage}
+                          setLanguage={setLanguage}
+                        />
+                      </div>
+                      
+                      {/* Credits Display */}
+                      <div className="border-t border-white/10 pt-3 mt-3">
+                        <div className="flex items-center justify-between px-2">
+                          <h3 className="font-medium truncate">Credits Remaining</h3>
+                          <span className="font-semibold text-white">
+                            {credits}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -15,6 +15,9 @@ import {
 import { ToastContext } from "./contexts/toast"
 import APIKeyPromptOnStartup from "./components/shared/APIKeyPromptOnStartup"
 
+// Add global styles for markdown
+import "./styles/markdown.css"
+
 // Create a React Query client
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -47,8 +47,9 @@ interface ElectronAPI {
   onCreditsUpdated: (callback: (credits: number) => void) => () => void
   onOutOfCredits: (callback: () => void) => () => void
   getPlatform: () => string
-  getOpenAIApiKey: () => Promise<{ success: boolean; apiKey?: string; error?: string }>
+  getOpenAIApiKey: () => Promise<{ success: boolean; apiKey?: string; model?: string; error?: string }>
   setOpenAIApiKey: (apiKey: string) => Promise<{ success: boolean; error?: string }>
+  setModelConfig: (config: { apiKey: string; model: string }) => Promise<{ success: boolean; error?: string }>
   onApiKeyUpdated: (callback: () => void) => () => void
   onApiKeyMissing: (callback: () => void) => () => void
 }
@@ -227,6 +228,7 @@ const electronAPI = {
   getPlatform: () => process.platform,
   getOpenAIApiKey: () => ipcRenderer.invoke("get-openai-api-key"),
   setOpenAIApiKey: (apiKey: string) => ipcRenderer.invoke("set-openai-api-key", apiKey),
+  setModelConfig: (config: { apiKey: string; model: string }) => ipcRenderer.invoke("set-model-config", config),
   onApiKeyUpdated: (callback: () => void) => {
     const subscription = () => callback()
     ipcRenderer.on("api-key-updated", subscription)

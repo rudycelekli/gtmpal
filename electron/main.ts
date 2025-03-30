@@ -409,6 +409,7 @@ async function loadEnvVariables() {
     const configPath = path.join(userDataPath, 'interview-coder-v1', 'config.json');
     
     let storedApiKey: string | undefined;
+    let storedModel: string | undefined;
     
     try {
       // Check if config file exists
@@ -418,16 +419,22 @@ async function loadEnvVariables() {
       const data = await fs.readFile(configPath, 'utf8');
       const config = JSON.parse(data || '{}');
       storedApiKey = config['openai-api-key'];
+      storedModel = config['openai-model'] || 'gpt-4o'; // Default to gpt-4o
     } catch (error) {
       // Config doesn't exist or can't be read
       storedApiKey = undefined;
+      storedModel = 'gpt-4o'; // Default model
     }
     
     if (storedApiKey) {
       // Make the API key available to both format variables
       process.env.OPENAI_API_KEY = storedApiKey;
       process.env.VITE_OPEN_AI_API_KEY = storedApiKey;
-      console.log("OpenAI API key loaded from user preferences");
+      
+      // Set the model in environment variables
+      process.env.OPENAI_MODEL = storedModel;
+      
+      console.log(`OpenAI API key loaded from user preferences, using model: ${storedModel}`);
     } else {
       console.log("No OpenAI API key found in user preferences. User will be prompted to enter one.");
       
@@ -446,7 +453,8 @@ async function loadEnvVariables() {
     
     console.log("Environment setup complete:", {
       NODE_ENV: process.env.NODE_ENV,
-      OPEN_AI_API_KEY: storedApiKey ? "exists" : "missing"
+      OPEN_AI_API_KEY: storedApiKey ? "exists" : "missing",
+      OPEN_AI_MODEL: storedModel || "not set"
     });
   } catch (error) {
     console.error("Error loading environment variables:", error);
